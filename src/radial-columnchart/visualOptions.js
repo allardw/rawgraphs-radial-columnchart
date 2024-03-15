@@ -56,6 +56,14 @@ export const visualOptions = {
         showLegend: true,
       },
     },
+
+
+    innerDiameter: {
+      type: 'number',
+      label: 'Inner diameter',
+      default: 40,
+      group: 'chart',
+    },
   
     stacksPadding: {
       type: 'number',
