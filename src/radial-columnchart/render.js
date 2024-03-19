@@ -54,18 +54,21 @@ export function render(
     var closeR = innerRadius;
     var midR = innerRadius + v0;
     var farR = innerRadius + value;
-    
+    // Define radii for different points
+    var midR = v0;
+    var farR = value;
+
     // Calculate coordinates for the close side
     var angleInRadians = ((-angle / 2) - 90) * Math.PI / 180.0;
     var closeX = closeR * Math.cos(angleInRadians);
     var closeY = closeR * Math.sin(angleInRadians);
-    
+
     // Calculate angles for mid and far sides
     var farX = closeX,
-        midX = closeX;
+      midX = closeX;
     var farA = -Math.acos(farX / farR);
     var midA = -Math.acos(midX / midR);
-    
+
     // Calculate y coordinates for mid and far sides
     var farY = farR * Math.sin(farA);
     var midY = midR * Math.sin(midA);
@@ -74,7 +77,7 @@ export function render(
     var d = ["M", midX, midY, "A", midR, midR, 0, 0, 1, -midX, midY, "V", -farX, farY, "A", farR, farR, 0, 0, 0, farX, farY, "V", midX, midY, "z"].join(" ");
 
     return d;
-}
+  }
 
   //check if there are negative values, in case throw error
   data.forEach((d) => {
@@ -134,13 +137,12 @@ export function render(
   const griddingData = gridding(nestedData)
 
   const svg = d3.select(svgNode).append('g').attr('id', 'viz')
-   console.log(griddingData)
   const series = svg
     .selectAll('g')
     .data(griddingData)
     .join('g')
     .attr('id', (d) => d[0])
-    .attr('transform', (d) => 'translate(' + (d.x + d.width/2) + ',' + (d.y + d.height/2) + ')')
+    .attr('transform', (d) => 'translate(' + (d.x + d.width / 2) + ',' + (d.y + d.height / 2) + ')')
 
   // domains
   // sum all values for each serie / stack
@@ -205,9 +207,63 @@ export function render(
       .append('g')
       .attr('transform', 'translate(' + margin.left + ',' + margin.top + ')')
 
+
     // compute each serie width and height
     const serieWidth = d.width - margin.right - margin.left
     const serieHeight = d.height - margin.top - margin.bottom
+
+
+    const smallerDimension = (serieHeight < serieWidth) ? serieHeight : serieWidth;
+    const serieLength = (smallerDimension / 2) - innerRadius;
+
+
+
+    const outerRadius = serieLength;
+
+    const axesGrid = d3
+      .scaleLinear()
+      .domain(useSameScale ? [sizeDomain[1], sizeDomain[0]] : [localDomain[1], localDomain[0]])
+      .nice(4)
+      .rangeRound([innerRadius, outerRadius])
+
+
+    const axesScale = d3
+      .scaleLinear()
+      .domain(useSameScale ? [sizeDomain[1], sizeDomain[0]] : [localDomain[1], localDomain[0]])
+      .nice(4)
+      .rangeRound([innerRadius, outerRadius])
+
+
+
+    let axesLayer = selection.append('g').attr('id', 'axes')
+
+    let axisFunction = d3.axisLeft(axesGrid).ticks(4)
+
+    // add a circle for each tick on the axis
+    axesLayer
+      .selectAll('.grid')
+      .data(axisFunction.scale().ticks(4))
+      .enter()
+      .append('circle')
+      .attr('r', (d) => { return axesScale(d) })
+      .attr('fill', 'none')
+      .attr('stroke', 'LightGray')
+      .attr('class', 'grid')
+      .attr('id', (d) => { return "r" + d })
+
+
+    //draw scale for first axis
+    axesLayer
+      .append('g')
+      .attr('id', 'y axis')
+      .call(axisFunction)
+      .attr('transform', `translate(${0}, ${-outerRadius - innerRadius})`)
+
+
+
+
+
+
 
     //prepare data for stack
     let localStack = Array.from(
@@ -269,20 +325,26 @@ export function render(
       ),
     ]
 
-    const serieLength = (serieHeight < serieWidth ? serieHeight : serieWidth)/2 - innerRadius
-    console.log(serieHeight , serieWidth)
 
-    const sizeScale = d3
+    // const sizeScale = d3
+    // .scaleLinear()
+    // .domain(useSameScale ? sizeDomain : localDomain)
+    // .nice()
+    // .range([serieLength, 0])
+
+
+
+
+
+
+    const barScale = d3
       .scaleLinear()
-      .domain(useSameScale ? sizeDomain : localDomain)
-      .nice()
-      .range([serieLength, 0])
-
-      console.log(useSameScale ? sizeDomain : localDomain, serieLength)
-      
+      .domain(useSameScale ? [sizeDomain[0], sizeDomain[1]] : [localDomain[0], localDomain[1]])
+      .nice(4)
+      .rangeRound([innerRadius, outerRadius])
 
     const bars = selection
-      .selectAll('g')
+      .selectAll('.values')
       .data(stackedData)
       .join('g')
       .attr('id', (d) => d.key)
@@ -291,49 +353,52 @@ export function render(
       .data((d) => d)
       .join('path')
       .attr('d', (d) => {
-        let angle = 360/stacksScale.domain().length;
-        let v0 = d[0];
-        let v1 = d[1];
-        return describeRadialBar(angle, v1, v0)})
-        .attr('transform', (d,i) => {
-          let angle = i * 360/stacksScale.domain().length
-          return 'rotate('+angle+')'})
-        //.attr('transform', (d) => 'translate('+stacksScale(d.data[0])+','+ sizeScale(d[1])+')')
-      // .join('rect') // HIER GEEN RECT MAAR EEN PATH
-      // .attr('x', (d) => stacksScale(d.data[0]))
-      // .attr('y', (d) => sizeScale(d[1]))
-      // .attr('width', stacksScale.bandwidth())
-      // .attr('height', (d) => serieHeight - sizeScale(d[1] - d[0]))
+        let angle = 360 / stacksScale.domain().length;
+        let v0 = barScale(d[0]);
+        let v1 = barScale(d[1]);
+        return describeRadialBar(angle, v1, v0)
+      })
+      .attr('transform', (d, i) => {
+        let seriescount = stacksScale.domain().length
+        let angle = (i + 0.5) * 360 / seriescount
+        return 'rotate(' + angle + ')'
+      })
+    //.attr('transform', (d) => 'translate('+stacksScale(d.data[0])+','+ sizeScale(d[1])+')')
+    // .join('rect') // HIER GEEN RECT MAAR EEN PATH
+    // .attr('x', (d) => stacksScale(d.data[0]))
+    // .attr('y', (d) => sizeScale(d[1]))
+    // .attr('width', stacksScale.bandwidth())
+    // .attr('height', (d) => serieHeight - sizeScale(d[1] - d[0]))
 
-    const xAxis = selection
-      .append('g')
-      .attr('id', 'xAxis')
-      .attr('transform', 'translate(0,' + sizeScale(0) + ')')
-      .call(d3.axisBottom(stacksScale).tickSizeOuter(0))
+    // const xAxis = selection
+    //   .append('g')
+    //   .attr('id', 'xAxis')
+    //   .attr('transform', 'translate(0,' + sizeScale(0) + ')')
+    //   .call(d3.axisBottom(stacksScale).tickSizeOuter(0))
 
-    const yAxis = selection
-      .append('g')
-      .attr('id', 'yAxis')
-      .call(d3.axisLeft(sizeScale).tickSizeOuter(0))
+    // const yAxis = selection
+    //   .append('g')
+    //   .attr('id', 'yAxis')
+    //   .call(d3.axisLeft(sizeScale).tickSizeOuter(0))
 
-    if (showSeriesLabels) {
-      d3.select(this)
-        .append('text')
-        .attr('x', 4)
-        .attr('y', 4)
-        .text((d) => d.data[0])
-        .styles(styles.seriesLabel)
-    }
+    // if (showSeriesLabels) {
+    //   d3.select(this)
+    //     .append('text')
+    //     .attr('x', 4)
+    //     .attr('y', 4)
+    //     .text((d) => d.data[0])
+    //     .styles(styles.seriesLabel)
+    // }
 
-    // add the x axis titles
-    selection
-      .append('text')
-      .attr('y', serieHeight - 4)
-      .attr('x', serieWidth)
-      .attr('text-anchor', 'end')
-      .attr('display', serieIndex == 0 || repeatAxesLabels ? null : 'none')
-      .text(mapping.stacks.value)
-      .styles(styles.axisLabel)
+    // // add the x axis titles
+    // selection
+    //   .append('text')
+    //   .attr('y', serieHeight - 4)
+    //   .attr('x', serieWidth)
+    //   .attr('text-anchor', 'end')
+    //   .attr('display', serieIndex == 0 || repeatAxesLabels ? null : 'none')
+    //   .text(mapping.stacks.value)
+    //   .styles(styles.axisLabel)
   })
 
   // add legend
