@@ -17,7 +17,8 @@
   "license": "Apache-2.0",
   "dependencies": {
     "css": "^3.0.0",
-    "d3": "^6.5.0"
+    "d3": "^6.5.0",
+    "d3-gridding": "^0.2.0"
   },
   "devDependencies": {
     "@babel/core": "^7.10.5",
